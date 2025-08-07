@@ -1,4 +1,11 @@
-name: Deploy to Vercel
+# DISABLED: Use Vercel's built-in Git integration instead
+# To enable auto-deploy:
+# 1. Go to your Vercel project
+# 2. Click Settings → Git
+# 3. Connect your GitHub repository
+# 4. Vercel will automatically deploy on every push
+
+name: Deploy to Vercel (DISABLED)
 
 on:
   push:
@@ -35,4 +42,6 @@ jobs:
         vercel-token: ${{ secrets.VERCEL_TOKEN }}
         vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
         vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-        vercel-args: '--prod' 
+        vercel-args: '--prod'
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} 

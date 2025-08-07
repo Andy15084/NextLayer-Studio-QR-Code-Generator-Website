@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import QRCode from 'qrcode';
 import Image from 'next/image';
 import {
@@ -284,6 +284,7 @@ const QRCodeGenerator: React.FC = () => {
     const [selectedType, setSelectedType] = useState<QRCodeType | null>(null);
     const [formData, setFormData] = useState<Record<string, string>>({});
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
+    const [previewDataUrl, setPreviewDataUrl] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState('');
 
@@ -292,61 +293,106 @@ const QRCodeGenerator: React.FC = () => {
     const [backgroundColor, setBackgroundColor] = useState('#FFFFFF');
     const [qrSize, setQrSize] = useState(10);
     const [borderSize, setBorderSize] = useState(4);
+    const [hasTransparentBackground, setHasTransparentBackground] = useState(false);
+    const [hasRoundedCorners, setHasRoundedCorners] = useState(false);
+    const [qrComplexity, setQrComplexity] = useState('M'); // L, M, Q, H
 
-    const generateQRCode = async () => {
+    // Calculate size in cm (assuming 96 DPI)
+    const sizeInCm = Math.round((qrSize * 400 * 2.54) / 96) / 10;
+
+    const generateQRContent = useCallback(() => {
+        if (!selectedType) return '';
+
+        let qrContent = '';
+
+        // Generate QR content based on type
+        switch (selectedType.id) {
+            case 'website':
+                qrContent = formData.url || '';
+                break;
+            case 'vcard':
+                qrContent = `BEGIN:VCARD\nVERSION:3.0\nFN:${formData.firstName || ''} ${formData.lastName || ''}\nORG:${formData.company || ''}\nTITLE:${formData.title || ''}\nEMAIL:${formData.email || ''}\nTEL:${formData.phone || ''}\nURL:${formData.website || ''}\nADR:${formData.address || ''}\nEND:VCARD`;
+                break;
+            case 'email':
+                qrContent = `mailto:${formData.email || ''}?subject=${encodeURIComponent(formData.subject || '')}&body=${encodeURIComponent(formData.body || '')}`;
+                break;
+            case 'phone':
+                qrContent = `tel:${formData.phone || ''}`;
+                break;
+            case 'sms':
+                qrContent = `sms:${formData.phone || ''}?body=${encodeURIComponent(formData.message || '')}`;
+                break;
+            case 'wifi':
+                const encryption = formData.encryption || 'WPA';
+                qrContent = `WIFI:T:${encryption};S:${formData.ssid || ''};P:${formData.password || ''};;`;
+                break;
+            case 'location':
+                qrContent = `geo:${formData.latitude || ''},${formData.longitude || ''}?q=${encodeURIComponent(formData.name || '')}`;
+                break;
+            case 'calendar':
+                qrContent = `BEGIN:VEVENT\nSUMMARY:${formData.title || ''}\nDTSTART:${formData.startDate || ''}T${formData.startTime || '00:00'}:00\nDTEND:${formData.endDate || formData.startDate || ''}T${formData.endTime || '23:59'}:00\nDESCRIPTION:${formData.description || ''}\nLOCATION:${formData.location || ''}\nEND:VEVENT`;
+                break;
+            default:
+                qrContent = Object.values(formData).join('\n');
+        }
+
+        return qrContent;
+    }, [selectedType, formData]);
+
+    const generatePreview = useCallback(async () => {
+        const qrContent = generateQRContent();
+        if (!qrContent.trim()) return;
+
+        try {
+            const options: QRCode.QRCodeToDataURLOptions = {
+                width: 200,
+                margin: borderSize,
+                color: {
+                    dark: fillColor,
+                    light: hasTransparentBackground ? '#00000000' : backgroundColor,
+                },
+                errorCorrectionLevel: qrComplexity as 'L' | 'M' | 'Q' | 'H',
+            };
+
+            const dataUrl = await QRCode.toDataURL(qrContent, options);
+            setPreviewDataUrl(dataUrl);
+        } catch (err) {
+            console.error('Preview generation error:', err);
+        }
+    }, [fillColor, backgroundColor, borderSize, hasTransparentBackground, qrComplexity, generateQRContent]);
+
+    // Generate preview when customization options change
+    useEffect(() => {
+        if (currentStep === 3 && generateQRContent().trim()) {
+            generatePreview();
+        }
+    }, [currentStep, generateQRContent, generatePreview]);
+
+    const generateQRCode = useCallback(async () => {
         if (!selectedType) return;
 
         setIsGenerating(true);
         setError('');
 
         try {
-            let qrContent = '';
-
-            // Generate QR content based on type
-            switch (selectedType.id) {
-                case 'website':
-                    qrContent = formData.url || '';
-                    break;
-                case 'vcard':
-                    qrContent = `BEGIN:VCARD\nVERSION:3.0\nFN:${formData.firstName || ''} ${formData.lastName || ''}\nORG:${formData.company || ''}\nTITLE:${formData.title || ''}\nEMAIL:${formData.email || ''}\nTEL:${formData.phone || ''}\nURL:${formData.website || ''}\nADR:${formData.address || ''}\nEND:VCARD`;
-                    break;
-                case 'email':
-                    qrContent = `mailto:${formData.email || ''}?subject=${encodeURIComponent(formData.subject || '')}&body=${encodeURIComponent(formData.body || '')}`;
-                    break;
-                case 'phone':
-                    qrContent = `tel:${formData.phone || ''}`;
-                    break;
-                case 'sms':
-                    qrContent = `sms:${formData.phone || ''}?body=${encodeURIComponent(formData.message || '')}`;
-                    break;
-                case 'wifi':
-                    const encryption = formData.encryption || 'WPA';
-                    qrContent = `WIFI:T:${encryption};S:${formData.ssid || ''};P:${formData.password || ''};;`;
-                    break;
-                case 'location':
-                    qrContent = `geo:${formData.latitude || ''},${formData.longitude || ''}?q=${encodeURIComponent(formData.name || '')}`;
-                    break;
-                case 'calendar':
-                    qrContent = `BEGIN:VEVENT\nSUMMARY:${formData.title || ''}\nDTSTART:${formData.startDate || ''}T${formData.startTime || '00:00'}:00\nDTEND:${formData.endDate || formData.startDate || ''}T${formData.endTime || '23:59'}:00\nDESCRIPTION:${formData.description || ''}\nLOCATION:${formData.location || ''}\nEND:VEVENT`;
-                    break;
-                default:
-                    qrContent = Object.values(formData).join('\n');
-            }
+            const qrContent = generateQRContent();
 
             if (!qrContent.trim()) {
                 setError('Please fill in all required fields');
                 return;
             }
 
-            const qrCodeDataUrl = await QRCode.toDataURL(qrContent, {
-                width: 400,
+            const options: QRCode.QRCodeToDataURLOptions = {
+                width: qrSize * 400,
                 margin: borderSize,
                 color: {
                     dark: fillColor,
-                    light: backgroundColor,
+                    light: hasTransparentBackground ? '#00000000' : backgroundColor,
                 },
-            });
+                errorCorrectionLevel: qrComplexity as 'L' | 'M' | 'Q' | 'H',
+            };
 
+            const qrCodeDataUrl = await QRCode.toDataURL(qrContent, options);
             setQrCodeDataUrl(qrCodeDataUrl);
             setCurrentStep(4);
         } catch (err) {
@@ -355,9 +401,9 @@ const QRCodeGenerator: React.FC = () => {
         } finally {
             setIsGenerating(false);
         }
-    };
+    }, [selectedType, qrSize, borderSize, hasTransparentBackground, backgroundColor, fillColor, qrComplexity, generateQRContent]);
 
-    const downloadQRCode = () => {
+    const downloadQRCode = useCallback(() => {
         if (!qrCodeDataUrl) {
             setError('Please generate a QR code first');
             return;
@@ -372,28 +418,32 @@ const QRCodeGenerator: React.FC = () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    };
+    }, [qrCodeDataUrl, selectedType]);
 
-    const resetToStep1 = () => {
+    const resetToStep1 = useCallback(() => {
         setCurrentStep(1);
         setSelectedType(null);
         setFormData({});
         setQrCodeDataUrl('');
+        setPreviewDataUrl('');
         setError('');
         setFillColor('#000000');
         setBackgroundColor('#FFFFFF');
         setQrSize(10);
         setBorderSize(4);
-    };
+        setHasTransparentBackground(false);
+        setHasRoundedCorners(false);
+        setQrComplexity('M');
+    }, []);
 
-    const handleInputChange = (fieldId: string, value: string) => {
+    const handleInputChange = useCallback((fieldId: string, value: string) => {
         setFormData(prev => ({
             ...prev,
             [fieldId]: value
         }));
-    };
+    }, []);
 
-    const getStepContent = () => {
+    const getStepContent = useCallback(() => {
         switch (currentStep) {
             case 1:
                 return (
@@ -535,7 +585,7 @@ const QRCodeGenerator: React.FC = () => {
                                     <div className="space-y-6">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                QR Code Size: {qrSize}
+                                                QR Code Size: {qrSize} ({sizeInCm} cm)
                                             </label>
                                             <input
                                                 type="range"
@@ -545,6 +595,10 @@ const QRCodeGenerator: React.FC = () => {
                                                 onChange={(e) => setQrSize(Number(e.target.value))}
                                                 className="w-full h-2 bg-gradient-to-r from-cyan-400 to-purple-600 rounded-lg appearance-none cursor-pointer slider"
                                             />
+                                            <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                                <span>1 ({Math.round((1 * 400 * 2.54) / 96) / 10} cm)</span>
+                                                <span>20 ({Math.round((20 * 400 * 2.54) / 96) / 10} cm)</span>
+                                            </div>
                                         </div>
 
                                         <div>
@@ -559,6 +613,22 @@ const QRCodeGenerator: React.FC = () => {
                                                 onChange={(e) => setBorderSize(Number(e.target.value))}
                                                 className="w-full h-2 bg-gradient-to-r from-cyan-400 to-purple-600 rounded-lg appearance-none cursor-pointer slider"
                                             />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                QR Code Complexity
+                                            </label>
+                                            <select
+                                                value={qrComplexity}
+                                                onChange={(e) => setQrComplexity(e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 bg-white rounded-2xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent text-gray-900 shadow-lg"
+                                            >
+                                                <option value="L">Low (7% recovery)</option>
+                                                <option value="M">Medium (15% recovery)</option>
+                                                <option value="Q">Quartile (25% recovery)</option>
+                                                <option value="H">High (30% recovery)</option>
+                                            </select>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4">
@@ -581,8 +651,36 @@ const QRCodeGenerator: React.FC = () => {
                                                     type="color"
                                                     value={backgroundColor}
                                                     onChange={(e) => setBackgroundColor(e.target.value)}
-                                                    className="w-full h-12 border border-gray-300 rounded-2xl cursor-pointer bg-white shadow-lg"
+                                                    disabled={hasTransparentBackground}
+                                                    className={`w-full h-12 border border-gray-300 rounded-2xl cursor-pointer bg-white shadow-lg ${hasTransparentBackground ? 'opacity-50' : ''}`}
                                                 />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <div className="flex items-center space-x-3">
+                                                <input
+                                                    type="checkbox"
+                                                    id="transparentBackground"
+                                                    checked={hasTransparentBackground}
+                                                    onChange={(e) => setHasTransparentBackground(e.target.checked)}
+                                                    className="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
+                                                />
+                                                <label htmlFor="transparentBackground" className="text-sm font-medium text-gray-700">
+                                                    Transparent Background (PNG)
+                                                </label>
+                                            </div>
+                                            <div className="flex items-center space-x-3">
+                                                <input
+                                                    type="checkbox"
+                                                    id="roundedCorners"
+                                                    checked={hasRoundedCorners}
+                                                    onChange={(e) => setHasRoundedCorners(e.target.checked)}
+                                                    className="w-4 h-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
+                                                />
+                                                <label htmlFor="roundedCorners" className="text-sm font-medium text-gray-700">
+                                                    Rounded Corners
+                                                </label>
                                             </div>
                                         </div>
                                     </div>
@@ -606,11 +704,30 @@ const QRCodeGenerator: React.FC = () => {
                             </div>
 
                             <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-lg flex items-center justify-center min-h-[400px]">
-                                <div className="text-center text-gray-500">
-                                    <Settings className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                                    <p className="text-xl font-medium">Preview</p>
-                                    <p className="text-sm">Your QR code will appear here</p>
-                                </div>
+                                {previewDataUrl ? (
+                                    <div className="text-center">
+                                        <div className={`inline-block ${hasRoundedCorners ? 'rounded-3xl' : ''} overflow-hidden shadow-2xl`}>
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={previewDataUrl}
+                                                alt="QR Code Preview"
+                                                className="max-w-full max-h-80 mx-auto"
+                                                style={{
+                                                    backgroundColor: hasTransparentBackground ? 'transparent' : backgroundColor
+                                                }}
+                                            />
+                                        </div>
+                                        <p className="text-sm text-gray-600 mt-4">
+                                            Preview - {sizeInCm} cm
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="text-center text-gray-500">
+                                        <Settings className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                                        <p className="text-xl font-medium">Preview</p>
+                                        <p className="text-sm">Your QR code will appear here</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -640,6 +757,16 @@ const QRCodeGenerator: React.FC = () => {
                                         <div className="flex justify-between">
                                             <span className="text-gray-600">Type:</span>
                                             <span className="font-medium">{selectedType.title}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Size:</span>
+                                            <span className="font-medium">{sizeInCm} cm</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Complexity:</span>
+                                            <span className="font-medium">
+                                                {qrComplexity === 'L' ? 'Low' : qrComplexity === 'M' ? 'Medium' : qrComplexity === 'Q' ? 'Quartile' : 'High'}
+                                            </span>
                                         </div>
                                         {Object.entries(formData).map(([key, value]) => (
                                             <div key={key} className="flex justify-between">
@@ -671,12 +798,17 @@ const QRCodeGenerator: React.FC = () => {
 
                             <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-lg">
                                 <div className="flex items-center justify-center">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                        src={qrCodeDataUrl}
-                                        alt="Generated QR Code"
-                                        className="max-w-full max-h-80 mx-auto shadow-2xl rounded-2xl"
-                                    />
+                                    <div className={`inline-block ${hasRoundedCorners ? 'rounded-3xl' : ''} overflow-hidden shadow-2xl`}>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={qrCodeDataUrl}
+                                            alt="Generated QR Code"
+                                            className="max-w-full max-h-80 mx-auto"
+                                            style={{
+                                                backgroundColor: hasTransparentBackground ? 'transparent' : backgroundColor
+                                            }}
+                                        />
+                                    </div>
                                 </div>
                                 <p className="text-center text-sm text-gray-600 mt-4">
                                     Scan this QR code to access your content
@@ -689,7 +821,7 @@ const QRCodeGenerator: React.FC = () => {
             default:
                 return null;
         }
-    };
+    }, [currentStep, selectedType, formData, qrSize, borderSize, hasTransparentBackground, backgroundColor, fillColor, qrComplexity, sizeInCm, hasRoundedCorners, previewDataUrl, qrCodeDataUrl, isGenerating, error, resetToStep1, downloadQRCode, generateQRCode, handleInputChange]);
 
     const steps = [
         { number: 1, title: 'Choose Type', active: currentStep >= 1 },
