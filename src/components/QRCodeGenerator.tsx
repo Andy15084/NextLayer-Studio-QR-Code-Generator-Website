@@ -311,6 +311,327 @@ const QRCodeGenerator: React.FC = () => {
     // Calculate size in cm (assuming 96 DPI)
     const sizeInCm = Math.round((qrSize * 400 * 2.54) / 96) / 10;
 
+    const applyCustomStyling = useCallback(async (dataUrl: string, options: {
+        qrStyle: string;
+        eyeStyle: string;
+        eyeColor: string;
+        logoFile: File | null;
+        logoSize: number;
+        logoPosition: string;
+        logoBackground: string;
+        logoCornerRadius: number;
+        logoPadding: number;
+        fillColor: string;
+        backgroundColor: string;
+        hasTransparentBackground: boolean;
+    }) => {
+        return new Promise<string>((resolve) => {
+            const img = new window.Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    resolve(dataUrl);
+                    return;
+                }
+
+                canvas.width = img.width;
+                canvas.height = img.height;
+
+                // Draw background
+                if (!options.hasTransparentBackground) {
+                    ctx.fillStyle = options.backgroundColor;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+
+                // Draw base QR code
+                ctx.drawImage(img, 0, 0);
+
+                // Apply custom styling
+                if (options.qrStyle !== 'squares' || options.eyeStyle !== 'square' || options.eyeColor !== options.fillColor) {
+                    applyQRCodeStyling(ctx, canvas.width, canvas.height, options);
+                }
+
+                // Add logo if provided
+                if (options.logoFile) {
+                    addLogoToQRCode(ctx, canvas.width, canvas.height, {
+                        logoFile: options.logoFile,
+                        logoSize: options.logoSize,
+                        logoPosition: options.logoPosition,
+                        logoBackground: options.logoBackground,
+                        logoCornerRadius: options.logoCornerRadius,
+                        logoPadding: options.logoPadding
+                    });
+                }
+
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.src = dataUrl;
+        });
+    }, []);
+
+    const applyQRCodeStyling = (ctx: CanvasRenderingContext2D, width: number, height: number, options: {
+        qrStyle: string;
+        eyeStyle: string;
+        eyeColor: string;
+        fillColor: string;
+    }) => {
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data;
+        const pixelSize = Math.max(1, Math.floor(width / 25)); // Approximate QR module size
+
+        // Apply QR code pattern styling
+        for (let y = 0; y < height; y += pixelSize) {
+            for (let x = 0; x < width; x += pixelSize) {
+                const index = (y * width + x) * 4;
+                const r = data[index];
+                const g = data[index + 1];
+                const b = data[index + 2];
+
+                // Check if this is a dark pixel (QR code module)
+                if (r < 128 && g < 128 && b < 128) {
+                    const centerX = x + pixelSize / 2;
+                    const centerY = y + pixelSize / 2;
+
+                    // Apply different patterns based on qrStyle
+                    switch (options.qrStyle) {
+                        case 'dots':
+                            drawDot(ctx, centerX, centerY, pixelSize * 0.4, options.fillColor);
+                            break;
+                        case 'rounded':
+                            drawRoundedSquare(ctx, x, y, pixelSize, pixelSize * 0.2, options.fillColor);
+                            break;
+                        case 'cross':
+                            drawCross(ctx, centerX, centerY, pixelSize * 0.6, options.fillColor);
+                            break;
+                        case 'diamond':
+                            drawDiamond(ctx, centerX, centerY, pixelSize * 0.6, options.fillColor);
+                            break;
+                        default: // squares
+                            ctx.fillStyle = options.fillColor;
+                            ctx.fillRect(x, y, pixelSize, pixelSize);
+                    }
+                }
+            }
+        }
+
+        // Apply eye styling
+        applyEyeStyling(ctx, width, height, pixelSize, options);
+    };
+
+    const drawDot = (ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color: string) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+    };
+
+    const drawRoundedSquare = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, radius: number, color: string) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+            ctx.roundRect(x, y, width, width, radius);
+        } else {
+            // Fallback for browsers that don't support roundRect
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + width - radius);
+            ctx.quadraticCurveTo(x + width, y + width, x + width - radius, y + width);
+            ctx.lineTo(x + radius, y + width);
+            ctx.quadraticCurveTo(x, y + width, x, y + width - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+        }
+        ctx.fill();
+    };
+
+    const drawCross = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) => {
+        ctx.fillStyle = color;
+        const halfSize = size / 2;
+        const thickness = size / 4;
+
+        // Vertical line
+        ctx.fillRect(x - thickness / 2, y - halfSize, thickness, size);
+        // Horizontal line
+        ctx.fillRect(x - halfSize, y - thickness / 2, size, thickness);
+    };
+
+    const drawDiamond = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x, y - size / 2);
+        ctx.lineTo(x + size / 2, y);
+        ctx.lineTo(x, y + size / 2);
+        ctx.lineTo(x - size / 2, y);
+        ctx.closePath();
+        ctx.fill();
+    };
+
+    const applyEyeStyling = (ctx: CanvasRenderingContext2D, width: number, height: number, pixelSize: number, options: {
+        eyeStyle: string;
+        eyeColor: string;
+    }) => {
+        const eyeSize = pixelSize * 7; // Standard QR eye size
+        const margin = pixelSize * 4;
+
+        // Top-left eye
+        drawEye(ctx, margin + eyeSize / 2, margin + eyeSize / 2, eyeSize, options.eyeStyle, options.eyeColor);
+        // Top-right eye
+        drawEye(ctx, width - margin - eyeSize / 2, margin + eyeSize / 2, eyeSize, options.eyeStyle, options.eyeColor);
+        // Bottom-left eye
+        drawEye(ctx, margin + eyeSize / 2, height - margin - eyeSize / 2, eyeSize, options.eyeStyle, options.eyeColor);
+    };
+
+    const drawEye = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, style: string, color: string) => {
+        ctx.fillStyle = color;
+
+        switch (style) {
+            case 'circle':
+                ctx.beginPath();
+                ctx.arc(x, y, size / 2, 0, 2 * Math.PI);
+                ctx.fill();
+                break;
+            case 'rounded':
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                    ctx.roundRect(x - size / 2, y - size / 2, size, size, size * 0.2);
+                } else {
+                    // Fallback for browsers that don't support roundRect
+                    const radius = size * 0.2;
+                    ctx.moveTo(x - size / 2 + radius, y - size / 2);
+                    ctx.lineTo(x + size / 2 - radius, y - size / 2);
+                    ctx.quadraticCurveTo(x + size / 2, y - size / 2, x + size / 2, y - size / 2 + radius);
+                    ctx.lineTo(x + size / 2, y + size / 2 - radius);
+                    ctx.quadraticCurveTo(x + size / 2, y + size / 2, x + size / 2 - radius, y + size / 2);
+                    ctx.lineTo(x - size / 2 + radius, y + size / 2);
+                    ctx.quadraticCurveTo(x - size / 2, y + size / 2, x - size / 2, y + size / 2 - radius);
+                    ctx.lineTo(x - size / 2, y - size / 2 + radius);
+                    ctx.quadraticCurveTo(x - size / 2, y - size / 2, x - size / 2 + radius, y - size / 2);
+                }
+                ctx.fill();
+                break;
+            case 'leaf':
+                drawLeafEye(ctx, x, y, size, color);
+                break;
+            default: // square
+                ctx.fillRect(x - size / 2, y - size / 2, size, size);
+        }
+    };
+
+    const drawLeafEye = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) => {
+        ctx.fillStyle = color;
+        const radius = size / 2;
+
+        // Draw leaf shape using arcs
+        ctx.beginPath();
+        ctx.arc(x - radius / 2, y - radius / 2, radius / 2, 0, Math.PI, true);
+        ctx.arc(x + radius / 2, y - radius / 2, radius / 2, Math.PI, 2 * Math.PI, true);
+        ctx.arc(x - radius / 2, y + radius / 2, radius / 2, Math.PI, 2 * Math.PI, true);
+        ctx.arc(x + radius / 2, y + radius / 2, radius / 2, 0, Math.PI, true);
+        ctx.fill();
+    };
+
+    const addLogoToQRCode = (ctx: CanvasRenderingContext2D, width: number, height: number, options: {
+        logoFile: File;
+        logoSize: number;
+        logoPosition: string;
+        logoBackground: string;
+        logoCornerRadius: number;
+        logoPadding: number;
+    }) => {
+        const logoImg = new window.Image();
+        logoImg.onload = () => {
+            const logoWidth = (width * options.logoSize) / 100;
+            const logoHeight = (logoWidth * logoImg.height) / logoImg.width;
+
+            // Calculate position
+            let logoX = 0;
+            let logoY = 0;
+
+            switch (options.logoPosition) {
+                case 'top-left':
+                    logoX = options.logoPadding;
+                    logoY = options.logoPadding;
+                    break;
+                case 'top-right':
+                    logoX = width - logoWidth - options.logoPadding;
+                    logoY = options.logoPadding;
+                    break;
+                case 'bottom-left':
+                    logoX = options.logoPadding;
+                    logoY = height - logoHeight - options.logoPadding;
+                    break;
+                case 'bottom-right':
+                    logoX = width - logoWidth - options.logoPadding;
+                    logoY = height - logoHeight - options.logoPadding;
+                    break;
+                default: // center
+                    logoX = (width - logoWidth) / 2;
+                    logoY = (height - logoHeight) / 2;
+            }
+
+            // Draw logo background
+            if (options.logoBackground !== 'transparent') {
+                ctx.fillStyle = options.logoBackground;
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                    ctx.roundRect(logoX - options.logoPadding, logoY - options.logoPadding,
+                        logoWidth + options.logoPadding * 2, logoHeight + options.logoPadding * 2,
+                        options.logoCornerRadius);
+                } else {
+                    // Fallback for browsers that don't support roundRect
+                    const radius = options.logoCornerRadius;
+                    const x = logoX - options.logoPadding;
+                    const y = logoY - options.logoPadding;
+                    const w = logoWidth + options.logoPadding * 2;
+                    const h = logoHeight + options.logoPadding * 2;
+
+                    ctx.moveTo(x + radius, y);
+                    ctx.lineTo(x + w - radius, y);
+                    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+                    ctx.lineTo(x + w, y + h - radius);
+                    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+                    ctx.lineTo(x + radius, y + h);
+                    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+                    ctx.lineTo(x, y + radius);
+                    ctx.quadraticCurveTo(x, y, x + radius, y);
+                }
+                ctx.fill();
+            }
+
+            // Draw logo
+            ctx.save();
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(logoX, logoY, logoWidth, logoHeight, options.logoCornerRadius);
+            } else {
+                // Fallback for browsers that don't support roundRect
+                const radius = options.logoCornerRadius;
+                ctx.moveTo(logoX + radius, logoY);
+                ctx.lineTo(logoX + logoWidth - radius, logoY);
+                ctx.quadraticCurveTo(logoX + logoWidth, logoY, logoX + logoWidth, logoY + radius);
+                ctx.lineTo(logoX + logoWidth, logoY + logoHeight - radius);
+                ctx.quadraticCurveTo(logoX + logoWidth, logoY + logoHeight, logoX + logoWidth - radius, logoY + logoHeight);
+                ctx.lineTo(logoX + radius, logoY + logoHeight);
+                ctx.quadraticCurveTo(logoX, logoY + logoHeight, logoX, logoY + logoHeight - radius);
+                ctx.lineTo(logoX, logoY + radius);
+                ctx.quadraticCurveTo(logoX, logoY, logoX + radius, logoY);
+            }
+            ctx.clip();
+            ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
+            ctx.restore();
+        };
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            if (e.target?.result) {
+                logoImg.src = e.target.result as string;
+            }
+        };
+        reader.readAsDataURL(options.logoFile);
+    };
+
     const generateQRContent = useCallback(() => {
         if (!selectedType) return '';
 
@@ -355,7 +676,8 @@ const QRCodeGenerator: React.FC = () => {
         if (!qrContent.trim()) return;
 
         try {
-            const options: QRCode.QRCodeToDataURLOptions = {
+            // Generate base QR code
+            const baseOptions: QRCode.QRCodeToDataURLOptions = {
                 width: 200,
                 margin: borderSize,
                 color: {
@@ -365,12 +687,31 @@ const QRCodeGenerator: React.FC = () => {
                 errorCorrectionLevel: qrComplexity as 'L' | 'M' | 'Q' | 'H',
             };
 
-            const dataUrl = await QRCode.toDataURL(qrContent, options);
+            let dataUrl = await QRCode.toDataURL(qrContent, baseOptions);
+
+            // Apply custom styling if needed
+            if (qrStyle !== 'squares' || eyeStyle !== 'square' || eyeColor !== fillColor || logoFile) {
+                dataUrl = await applyCustomStyling(dataUrl, {
+                    qrStyle,
+                    eyeStyle,
+                    eyeColor,
+                    logoFile,
+                    logoSize,
+                    logoPosition,
+                    logoBackground,
+                    logoCornerRadius,
+                    logoPadding,
+                    fillColor,
+                    backgroundColor,
+                    hasTransparentBackground
+                });
+            }
+
             setPreviewDataUrl(dataUrl);
         } catch (err) {
             console.error('Preview generation error:', err);
         }
-    }, [fillColor, backgroundColor, borderSize, hasTransparentBackground, qrComplexity, generateQRContent]);
+    }, [fillColor, backgroundColor, borderSize, hasTransparentBackground, qrComplexity, generateQRContent, qrStyle, eyeStyle, eyeColor, logoFile, logoSize, logoPosition, logoBackground, logoCornerRadius, logoPadding]);
 
     // Generate preview when customization options change
     useEffect(() => {
@@ -393,7 +734,8 @@ const QRCodeGenerator: React.FC = () => {
                 return;
             }
 
-            const options: QRCode.QRCodeToDataURLOptions = {
+            // Generate base QR code
+            const baseOptions: QRCode.QRCodeToDataURLOptions = {
                 width: qrSize * 400,
                 margin: borderSize,
                 color: {
@@ -403,7 +745,26 @@ const QRCodeGenerator: React.FC = () => {
                 errorCorrectionLevel: qrComplexity as 'L' | 'M' | 'Q' | 'H',
             };
 
-            const qrCodeDataUrl = await QRCode.toDataURL(qrContent, options);
+            let qrCodeDataUrl = await QRCode.toDataURL(qrContent, baseOptions);
+
+            // Apply custom styling if needed
+            if (qrStyle !== 'squares' || eyeStyle !== 'square' || eyeColor !== fillColor || logoFile) {
+                qrCodeDataUrl = await applyCustomStyling(qrCodeDataUrl, {
+                    qrStyle,
+                    eyeStyle,
+                    eyeColor,
+                    logoFile,
+                    logoSize,
+                    logoPosition,
+                    logoBackground,
+                    logoCornerRadius,
+                    logoPadding,
+                    fillColor,
+                    backgroundColor,
+                    hasTransparentBackground
+                });
+            }
+
             setQrCodeDataUrl(qrCodeDataUrl);
             setCurrentStep(4);
         } catch (err) {
@@ -412,7 +773,7 @@ const QRCodeGenerator: React.FC = () => {
         } finally {
             setIsGenerating(false);
         }
-    }, [selectedType, qrSize, borderSize, hasTransparentBackground, backgroundColor, fillColor, qrComplexity, generateQRContent]);
+    }, [selectedType, qrSize, borderSize, hasTransparentBackground, backgroundColor, fillColor, qrComplexity, generateQRContent, qrStyle, eyeStyle, eyeColor, logoFile, logoSize, logoPosition, logoBackground, logoCornerRadius, logoPadding]);
 
     const downloadQRCode = useCallback(() => {
         if (!qrCodeDataUrl) {
