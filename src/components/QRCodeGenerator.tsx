@@ -2,36 +2,343 @@
 
 import React, { useState } from 'react';
 import QRCode from 'qrcode';
+import Image from 'next/image';
+import {
+    Globe,
+    FileText,
+    Link,
+    User,
+    Briefcase,
+    Play,
+    Image as ImageIcon,
+    Facebook,
+    Instagram,
+    MessageSquare,
+    Music,
+    Menu,
+    Smartphone,
+    Tag,
+    Wifi,
+    ChevronRight,
+    Download,
+    Palette,
+    Settings,
+    Mail,
+    Phone,
+    MapPin,
+    Calendar
+} from 'lucide-react';
+
+type QRCodeType = {
+    id: string;
+    title: string;
+    description: string;
+    icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+    fields: FormField[];
+};
+
+type FormField = {
+    id: string;
+    label: string;
+    type: 'text' | 'email' | 'url' | 'tel' | 'textarea' | 'select';
+    placeholder?: string;
+    required?: boolean;
+    options?: { value: string; label: string }[];
+};
+
+const qrCodeTypes: QRCodeType[] = [
+    {
+        id: 'website',
+        title: 'Webová stránka',
+        description: 'Odkaz na ľubovoľnú webovú adresu URL',
+        icon: Globe,
+        fields: [
+            {
+                id: 'url',
+                label: 'URL adresa',
+                type: 'url',
+                placeholder: 'https://example.com',
+                required: true
+            }
+        ]
+    },
+    {
+        id: 'vcard',
+        title: 'vCard',
+        description: 'Zdieľajte svoju elektronickú vizitku',
+        icon: User,
+        fields: [
+            { id: 'firstName', label: 'Meno', type: 'text', placeholder: 'Ján', required: true },
+            { id: 'lastName', label: 'Priezvisko', type: 'text', placeholder: 'Novák', required: true },
+            { id: 'company', label: 'Spoločnosť', type: 'text', placeholder: 'NextLayer Studio' },
+            { id: 'title', label: 'Pozícia', type: 'text', placeholder: 'Developer' },
+            { id: 'email', label: 'Email', type: 'email', placeholder: 'jan.novak@example.com' },
+            { id: 'phone', label: 'Telefón', type: 'tel', placeholder: '+421 123 456 789' },
+            { id: 'website', label: 'Webová stránka', type: 'url', placeholder: 'https://example.com' },
+            { id: 'address', label: 'Adresa', type: 'textarea', placeholder: 'Hlavná ulica 123, Bratislava' }
+        ]
+    },
+    {
+        id: 'email',
+        title: 'Email',
+        description: 'Odošlite email s predmetom a textom',
+        icon: Mail,
+        fields: [
+            { id: 'email', label: 'Email adresa', type: 'email', placeholder: 'recipient@example.com', required: true },
+            { id: 'subject', label: 'Predmet', type: 'text', placeholder: 'Predmet emailu', required: true },
+            { id: 'body', label: 'Text emailu', type: 'textarea', placeholder: 'Text správy...', required: true }
+        ]
+    },
+    {
+        id: 'phone',
+        title: 'Telefón',
+        description: 'Zavolajte na telefónne číslo',
+        icon: Phone,
+        fields: [
+            { id: 'phone', label: 'Telefónne číslo', type: 'tel', placeholder: '+421 123 456 789', required: true }
+        ]
+    },
+    {
+        id: 'sms',
+        title: 'SMS',
+        description: 'Pošlite SMS správu',
+        icon: MessageSquare,
+        fields: [
+            { id: 'phone', label: 'Telefónne číslo', type: 'tel', placeholder: '+421 123 456 789', required: true },
+            { id: 'message', label: 'SMS správa', type: 'textarea', placeholder: 'Text SMS správy...', required: true }
+        ]
+    },
+    {
+        id: 'wifi',
+        title: 'WiFi',
+        description: 'Pripojte sa k sieti Wi-Fi',
+        icon: Wifi,
+        fields: [
+            { id: 'ssid', label: 'Názov siete (SSID)', type: 'text', placeholder: 'MojaWiFi', required: true },
+            { id: 'password', label: 'Heslo', type: 'text', placeholder: 'heslo123' },
+            {
+                id: 'encryption', label: 'Typ šifrovania', type: 'select', options: [
+                    { value: 'WPA', label: 'WPA/WPA2/WPA3' },
+                    { value: 'WEP', label: 'WEP' },
+                    { value: 'nopass', label: 'Bez hesla' }
+                ], required: true
+            }
+        ]
+    },
+    {
+        id: 'location',
+        title: 'Poloha',
+        description: 'Zdieľajte GPS súradnice',
+        icon: MapPin,
+        fields: [
+            { id: 'latitude', label: 'Zemepisná šírka', type: 'text', placeholder: '48.1486', required: true },
+            { id: 'longitude', label: 'Zemepisná dĺžka', type: 'text', placeholder: '17.1077', required: true },
+            { id: 'name', label: 'Názov miesta', type: 'text', placeholder: 'Bratislava, Slovensko' }
+        ]
+    },
+    {
+        id: 'calendar',
+        title: 'Kalendár',
+        description: 'Pridajte udalosť do kalendára',
+        icon: Calendar,
+        fields: [
+            { id: 'title', label: 'Názov udalosti', type: 'text', placeholder: 'Dôležitá schôdzka', required: true },
+            { id: 'startDate', label: 'Dátum začiatku', type: 'text', placeholder: '2024-01-15', required: true },
+            { id: 'startTime', label: 'Čas začiatku', type: 'text', placeholder: '14:00' },
+            { id: 'endDate', label: 'Dátum konca', type: 'text', placeholder: '2024-01-15' },
+            { id: 'endTime', label: 'Čas konca', type: 'text', placeholder: '15:00' },
+            { id: 'description', label: 'Popis', type: 'textarea', placeholder: 'Popis udalosti...' },
+            { id: 'location', label: 'Miesto', type: 'text', placeholder: 'Bratislava, Slovensko' }
+        ]
+    },
+    {
+        id: 'pdf',
+        title: 'PDF',
+        description: 'Ukázať súbor PDF',
+        icon: FileText,
+        fields: [
+            { id: 'url', label: 'URL PDF súboru', type: 'url', placeholder: 'https://example.com/document.pdf', required: true }
+        ]
+    },
+    {
+        id: 'links',
+        title: 'Zoznam odkazov',
+        description: 'Zdieľajte viacero odkazov',
+        icon: Link,
+        fields: [
+            { id: 'links', label: 'Odkazy (jeden na riadok)', type: 'textarea', placeholder: 'https://example1.com\nhttps://example2.com\nhttps://example3.com', required: true }
+        ]
+    },
+    {
+        id: 'business',
+        title: 'Podnikanie',
+        description: 'Zdieľajte informácie o svojej firme',
+        icon: Briefcase,
+        fields: [
+            { id: 'name', label: 'Názov firmy', type: 'text', placeholder: 'NextLayer Studio', required: true },
+            { id: 'description', label: 'Popis firmy', type: 'textarea', placeholder: 'Popis vašej firmy...' },
+            { id: 'phone', label: 'Telefón', type: 'tel', placeholder: '+421 123 456 789' },
+            { id: 'email', label: 'Email', type: 'email', placeholder: 'info@example.com' },
+            { id: 'website', label: 'Webová stránka', type: 'url', placeholder: 'https://example.com' },
+            { id: 'address', label: 'Adresa', type: 'textarea', placeholder: 'Hlavná ulica 123, Bratislava' }
+        ]
+    },
+    {
+        id: 'video',
+        title: 'Video',
+        description: 'Zobraziť video',
+        icon: Play,
+        fields: [
+            { id: 'url', label: 'URL videa', type: 'url', placeholder: 'https://youtube.com/watch?v=...', required: true }
+        ]
+    },
+    {
+        id: 'images',
+        title: 'Obrázky',
+        description: 'Zdieľajte viacero obrázkov',
+        icon: ImageIcon,
+        fields: [
+            { id: 'images', label: 'URL obrázkov (jeden na riadok)', type: 'textarea', placeholder: 'https://example.com/image1.jpg\nhttps://example.com/image2.jpg', required: true }
+        ]
+    },
+    {
+        id: 'facebook',
+        title: 'Facebook',
+        description: 'Zdieľajte svoju stránku na Facebooku',
+        icon: Facebook,
+        fields: [
+            { id: 'url', label: 'URL Facebook stránky', type: 'url', placeholder: 'https://facebook.com/yourpage', required: true }
+        ]
+    },
+    {
+        id: 'instagram',
+        title: 'Instagram',
+        description: 'Zdieľajte svoj Instagram',
+        icon: Instagram,
+        fields: [
+            { id: 'username', label: 'Instagram používateľské meno', type: 'text', placeholder: 'yourusername', required: true }
+        ]
+    },
+    {
+        id: 'whatsapp',
+        title: 'WhatsApp',
+        description: 'Získajte správy WhatsApp',
+        icon: MessageSquare,
+        fields: [
+            { id: 'phone', label: 'Telefónne číslo', type: 'tel', placeholder: '+421 123 456 789', required: true },
+            { id: 'message', label: 'Predvolená správa', type: 'textarea', placeholder: 'Ahoj! Chcel by som sa informovať...' }
+        ]
+    },
+    {
+        id: 'mp3',
+        title: 'MP3',
+        description: 'Zdieľanie zvukového súboru',
+        icon: Music,
+        fields: [
+            { id: 'url', label: 'URL MP3 súboru', type: 'url', placeholder: 'https://example.com/song.mp3', required: true }
+        ]
+    },
+    {
+        id: 'menu',
+        title: 'Menu',
+        description: 'Vytvorte menu reštaurácie',
+        icon: Menu,
+        fields: [
+            { id: 'restaurantName', label: 'Názov reštaurácie', type: 'text', placeholder: 'Moja Reštaurácia', required: true },
+            { id: 'menuItems', label: 'Položky menu (jeden na riadok)', type: 'textarea', placeholder: 'Pizza Margherita - 12€\nŠpagety Carbonara - 10€\nSalát César - 8€', required: true }
+        ]
+    },
+    {
+        id: 'apps',
+        title: 'Aplikácie',
+        description: 'Presmerovanie do obchodu s aplikáciami',
+        icon: Smartphone,
+        fields: [
+            { id: 'appName', label: 'Názov aplikácie', type: 'text', placeholder: 'Moja Aplikácia', required: true },
+            {
+                id: 'platform', label: 'Platforma', type: 'select', options: [
+                    { value: 'ios', label: 'iOS App Store' },
+                    { value: 'android', label: 'Google Play Store' },
+                    { value: 'both', label: 'Obe platformy' }
+                ], required: true
+            },
+            { id: 'appId', label: 'ID aplikácie', type: 'text', placeholder: 'com.example.app' }
+        ]
+    },
+    {
+        id: 'coupon',
+        title: 'Kupón',
+        description: 'Zdieľajte kupón',
+        icon: Tag,
+        fields: [
+            { id: 'title', label: 'Názov kupónu', type: 'text', placeholder: 'Zľava 20%', required: true },
+            { id: 'code', label: 'Kód kupónu', type: 'text', placeholder: 'SAVE20', required: true },
+            { id: 'description', label: 'Popis', type: 'textarea', placeholder: 'Zľava 20% na všetok tovar...' },
+            { id: 'validUntil', label: 'Platný do', type: 'text', placeholder: '2024-12-31' }
+        ]
+    }
+];
 
 const QRCodeGenerator: React.FC = () => {
-    const [url, setUrl] = useState('');
-    const [filename, setFilename] = useState('');
-    const [qrSize, setQrSize] = useState(10);
-    const [borderSize, setBorderSize] = useState(4);
-    const [fillColor, setFillColor] = useState('#000000');
-    const [backgroundColor, setBackgroundColor] = useState('#FFFFFF');
+    const [currentStep, setCurrentStep] = useState(1);
+    const [selectedType, setSelectedType] = useState<QRCodeType | null>(null);
+    const [formData, setFormData] = useState<Record<string, string>>({});
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState('');
 
+    // Customization options
+    const [fillColor, setFillColor] = useState('#000000');
+    const [backgroundColor, setBackgroundColor] = useState('#FFFFFF');
+    const [qrSize, setQrSize] = useState(10);
+    const [borderSize, setBorderSize] = useState(4);
+
     const generateQRCode = async () => {
-        if (!url.trim()) {
-            setError('Please enter a URL');
-            return;
-        }
+        if (!selectedType) return;
 
         setIsGenerating(true);
         setError('');
 
         try {
-            // Add https:// if no protocol specified
-            let processedUrl = url.trim();
-            if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
-                processedUrl = 'https://' + processedUrl;
+            let qrContent = '';
+
+            // Generate QR content based on type
+            switch (selectedType.id) {
+                case 'website':
+                    qrContent = formData.url || '';
+                    break;
+                case 'vcard':
+                    qrContent = `BEGIN:VCARD\nVERSION:3.0\nFN:${formData.firstName || ''} ${formData.lastName || ''}\nORG:${formData.company || ''}\nTITLE:${formData.title || ''}\nEMAIL:${formData.email || ''}\nTEL:${formData.phone || ''}\nURL:${formData.website || ''}\nADR:${formData.address || ''}\nEND:VCARD`;
+                    break;
+                case 'email':
+                    qrContent = `mailto:${formData.email || ''}?subject=${encodeURIComponent(formData.subject || '')}&body=${encodeURIComponent(formData.body || '')}`;
+                    break;
+                case 'phone':
+                    qrContent = `tel:${formData.phone || ''}`;
+                    break;
+                case 'sms':
+                    qrContent = `sms:${formData.phone || ''}?body=${encodeURIComponent(formData.message || '')}`;
+                    break;
+                case 'wifi':
+                    const encryption = formData.encryption || 'WPA';
+                    qrContent = `WIFI:T:${encryption};S:${formData.ssid || ''};P:${formData.password || ''};;`;
+                    break;
+                case 'location':
+                    qrContent = `geo:${formData.latitude || ''},${formData.longitude || ''}?q=${encodeURIComponent(formData.name || '')}`;
+                    break;
+                case 'calendar':
+                    qrContent = `BEGIN:VEVENT\nSUMMARY:${formData.title || ''}\nDTSTART:${formData.startDate || ''}T${formData.startTime || '00:00'}:00\nDTEND:${formData.endDate || formData.startDate || ''}T${formData.endTime || '23:59'}:00\nDESCRIPTION:${formData.description || ''}\nLOCATION:${formData.location || ''}\nEND:VEVENT`;
+                    break;
+                default:
+                    qrContent = Object.values(formData).join('\n');
             }
 
-            // Generate QR code
-            const qrCodeDataUrl = await QRCode.toDataURL(processedUrl, {
+            if (!qrContent.trim()) {
+                setError('Please fill in all required fields');
+                return;
+            }
+
+            const qrCodeDataUrl = await QRCode.toDataURL(qrContent, {
                 width: 400,
                 margin: borderSize,
                 color: {
@@ -41,8 +348,9 @@ const QRCodeGenerator: React.FC = () => {
             });
 
             setQrCodeDataUrl(qrCodeDataUrl);
+            setCurrentStep(4);
         } catch (err) {
-            setError('Failed to generate QR code. Please check your URL and try again.');
+            setError('Failed to generate QR code. Please check your data and try again.');
             console.error('QR Code generation error:', err);
         } finally {
             setIsGenerating(false);
@@ -57,196 +365,433 @@ const QRCodeGenerator: React.FC = () => {
 
         const link = document.createElement('a');
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-        const defaultFilename = filename.trim() || `qr-code-${timestamp}`;
-        const finalFilename = defaultFilename.endsWith('.png') ? defaultFilename : `${defaultFilename}.png`;
+        const filename = `${selectedType?.id || 'qr'}-code-${timestamp}.png`;
 
-        link.download = finalFilename;
+        link.download = filename;
         link.href = qrCodeDataUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     };
 
-    const clearAll = () => {
-        setUrl('');
-        setFilename('');
-        setQrSize(10);
-        setBorderSize(4);
-        setFillColor('#000000');
-        setBackgroundColor('#FFFFFF');
+    const resetToStep1 = () => {
+        setCurrentStep(1);
+        setSelectedType(null);
+        setFormData({});
         setQrCodeDataUrl('');
         setError('');
+        setFillColor('#000000');
+        setBackgroundColor('#FFFFFF');
+        setQrSize(10);
+        setBorderSize(4);
     };
 
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
-            <div className="max-w-4xl mx-auto">
-                {/* Header */}
-                <div className="text-center mb-8">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                        QR Code Generator
-                    </h1>
-                    <p className="text-gray-600 text-lg">
-                        Create beautiful QR codes for any website
-                    </p>
-                </div>
+    const handleInputChange = (fieldId: string, value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            [fieldId]: value
+        }));
+    };
 
-                <div className="grid lg:grid-cols-2 gap-8">
-                    {/* Left Panel - Controls */}
-                    <div className="bg-white rounded-xl shadow-lg p-6">
-                        <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-                            Settings
-                        </h2>
-
-                        {/* URL Input */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Website URL *
-                            </label>
-                            <input
-                                type="text"
-                                value={url}
-                                onChange={(e) => setUrl(e.target.value)}
-                                placeholder="Enter website URL (e.g., google.com)"
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
+    const getStepContent = () => {
+        switch (currentStep) {
+            case 1:
+                return (
+                    <div className="space-y-8">
+                        <div className="text-center">
+                            <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent mb-4">
+                                Choose QR Code Type
+                            </h2>
+                            <p className="text-gray-600 text-lg">Select what type of content you want to encode</p>
                         </div>
-
-                        {/* Filename Input */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Filename (optional)
-                            </label>
-                            <input
-                                type="text"
-                                value={filename}
-                                onChange={(e) => setFilename(e.target.value)}
-                                placeholder="Enter filename (e.g., my-qr-code)"
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                        </div>
-
-                        {/* QR Code Size */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                QR Code Size: {qrSize}
-                            </label>
-                            <input
-                                type="range"
-                                min="1"
-                                max="20"
-                                value={qrSize}
-                                onChange={(e) => setQrSize(Number(e.target.value))}
-                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                            />
-                        </div>
-
-                        {/* Border Size */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Border Size: {borderSize}
-                            </label>
-                            <input
-                                type="range"
-                                min="0"
-                                max="10"
-                                value={borderSize}
-                                onChange={(e) => setBorderSize(Number(e.target.value))}
-                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                            />
-                        </div>
-
-                        {/* Colors */}
-                        <div className="grid grid-cols-2 gap-4 mb-6">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Fill Color
-                                </label>
-                                <input
-                                    type="color"
-                                    value={fillColor}
-                                    onChange={(e) => setFillColor(e.target.value)}
-                                    className="w-full h-10 border border-gray-300 rounded-lg cursor-pointer"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Background Color
-                                </label>
-                                <input
-                                    type="color"
-                                    value={backgroundColor}
-                                    onChange={(e) => setBackgroundColor(e.target.value)}
-                                    className="w-full h-10 border border-gray-300 rounded-lg cursor-pointer"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Error Message */}
-                        {error && (
-                            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-                                {error}
-                            </div>
-                        )}
-
-                        {/* Action Buttons */}
-                        <div className="flex flex-wrap gap-3">
-                            <button
-                                onClick={generateQRCode}
-                                disabled={isGenerating}
-                                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200"
-                            >
-                                {isGenerating ? 'Generating...' : 'Generate QR Code'}
-                            </button>
-                            <button
-                                onClick={downloadQRCode}
-                                disabled={!qrCodeDataUrl}
-                                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200"
-                            >
-                                Download QR Code
-                            </button>
-                            <button
-                                onClick={clearAll}
-                                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200"
-                            >
-                                Clear All
-                            </button>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            {qrCodeTypes.map((type) => (
+                                <button
+                                    key={type.id}
+                                    onClick={() => {
+                                        setSelectedType(type);
+                                        setFormData({});
+                                        setCurrentStep(2);
+                                    }}
+                                    className="group relative p-6 bg-white rounded-2xl border-2 border-gray-200 hover:border-cyan-400 hover:shadow-2xl hover:shadow-cyan-500/20 transition-all duration-300 text-left hover:scale-105 shadow-lg"
+                                >
+                                    <div className="flex items-center space-x-4">
+                                        <div className="p-3 bg-gradient-to-br from-cyan-400 to-purple-600 rounded-xl group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                                            <type.icon className="w-6 h-6 text-white" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="font-semibold text-gray-900 text-sm">{type.title}</h3>
+                                            <p className="text-xs text-gray-600 mt-1">{type.description}</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
                         </div>
                     </div>
+                );
 
-                    {/* Right Panel - Preview */}
-                    <div className="bg-white rounded-xl shadow-lg p-6">
-                        <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-                            Preview
-                        </h2>
+            case 2:
+                if (!selectedType) return null;
+                return (
+                    <div className="space-y-8">
+                        <div className="text-center">
+                            <div className="flex items-center justify-center space-x-3 mb-4">
+                                <div className="p-3 bg-gradient-to-br from-cyan-400 to-purple-600 rounded-xl">
+                                    <selectedType.icon className="w-8 h-8 text-white" />
+                                </div>
+                                <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
+                                    {selectedType.title}
+                                </h2>
+                            </div>
+                            <p className="text-gray-600 text-lg">Fill in the details for your QR code</p>
+                        </div>
 
-                        <div className="flex items-center justify-center min-h-[400px] bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                            {qrCodeDataUrl ? (
-                                <div className="text-center">
+                        <div className="space-y-6">
+                            <div className="grid gap-6">
+                                {selectedType.fields.map((field) => (
+                                    <div key={field.id}>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            {field.label} {field.required && <span className="text-red-500">*</span>}
+                                        </label>
+                                        {field.type === 'textarea' ? (
+                                            <textarea
+                                                value={formData[field.id] || ''}
+                                                onChange={(e) => handleInputChange(field.id, e.target.value)}
+                                                placeholder={field.placeholder}
+                                                className="w-full px-6 py-4 border border-gray-300 bg-white rounded-2xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent resize-none text-gray-900 placeholder-gray-500 shadow-lg"
+                                                rows={4}
+                                            />
+                                        ) : field.type === 'select' ? (
+                                            <select
+                                                value={formData[field.id] || ''}
+                                                onChange={(e) => handleInputChange(field.id, e.target.value)}
+                                                className="w-full px-6 py-4 border border-gray-300 bg-white rounded-2xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent text-gray-900 shadow-lg"
+                                            >
+                                                <option value="">Select an option</option>
+                                                {field.options?.map((option) => (
+                                                    <option key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <input
+                                                type={field.type}
+                                                value={formData[field.id] || ''}
+                                                onChange={(e) => handleInputChange(field.id, e.target.value)}
+                                                placeholder={field.placeholder}
+                                                className="w-full px-6 py-4 border border-gray-300 bg-white rounded-2xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent text-gray-900 placeholder-gray-500 shadow-lg"
+                                            />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {error && (
+                                <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-2xl">
+                                    {error}
+                                </div>
+                            )}
+
+                            <div className="flex space-x-4">
+                                <button
+                                    onClick={() => setCurrentStep(1)}
+                                    className="px-8 py-3 border border-gray-300 bg-white text-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-300 shadow-lg"
+                                >
+                                    Back
+                                </button>
+                                <button
+                                    onClick={() => setCurrentStep(3)}
+                                    disabled={!Object.keys(formData).some(key => formData[key]?.trim())}
+                                    className="flex-1 px-8 py-3 bg-gradient-to-r from-cyan-400 to-purple-600 text-white rounded-2xl hover:from-cyan-500 hover:to-purple-700 disabled:opacity-50 transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
+                                >
+                                    <span>Next</span>
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+
+            case 3:
+                return (
+                    <div className="space-y-8">
+                        <div className="text-center">
+                            <div className="flex items-center justify-center space-x-3 mb-4">
+                                <div className="p-3 bg-gradient-to-br from-cyan-400 to-purple-600 rounded-xl">
+                                    <Palette className="w-8 h-8 text-white" />
+                                </div>
+                                <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
+                                    Customize QR Code
+                                </h2>
+                            </div>
+                            <p className="text-gray-600 text-lg">Adjust the appearance of your QR code</p>
+                        </div>
+
+                        <div className="grid lg:grid-cols-2 gap-8">
+                            <div className="space-y-6">
+                                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                                    <h3 className="font-semibold text-gray-900 mb-4">Customization Options</h3>
+                                    <div className="space-y-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                QR Code Size: {qrSize}
+                                            </label>
+                                            <input
+                                                type="range"
+                                                min="1"
+                                                max="20"
+                                                value={qrSize}
+                                                onChange={(e) => setQrSize(Number(e.target.value))}
+                                                className="w-full h-2 bg-gradient-to-r from-cyan-400 to-purple-600 rounded-lg appearance-none cursor-pointer slider"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Border Size: {borderSize}
+                                            </label>
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="10"
+                                                value={borderSize}
+                                                onChange={(e) => setBorderSize(Number(e.target.value))}
+                                                className="w-full h-2 bg-gradient-to-r from-cyan-400 to-purple-600 rounded-lg appearance-none cursor-pointer slider"
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Fill Color
+                                                </label>
+                                                <input
+                                                    type="color"
+                                                    value={fillColor}
+                                                    onChange={(e) => setFillColor(e.target.value)}
+                                                    className="w-full h-12 border border-gray-300 rounded-2xl cursor-pointer bg-white shadow-lg"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Background Color
+                                                </label>
+                                                <input
+                                                    type="color"
+                                                    value={backgroundColor}
+                                                    onChange={(e) => setBackgroundColor(e.target.value)}
+                                                    className="w-full h-12 border border-gray-300 rounded-2xl cursor-pointer bg-white shadow-lg"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex space-x-4">
+                                    <button
+                                        onClick={() => setCurrentStep(2)}
+                                        className="px-8 py-3 border border-gray-300 bg-white text-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-300 shadow-lg"
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        onClick={generateQRCode}
+                                        disabled={isGenerating}
+                                        className="flex-1 px-8 py-3 bg-gradient-to-r from-cyan-400 to-purple-600 text-white rounded-2xl hover:from-cyan-500 hover:to-purple-700 disabled:opacity-50 transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
+                                    >
+                                        {isGenerating ? 'Generating...' : 'Generate QR Code'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-lg flex items-center justify-center min-h-[400px]">
+                                <div className="text-center text-gray-500">
+                                    <Settings className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                                    <p className="text-xl font-medium">Preview</p>
+                                    <p className="text-sm">Your QR code will appear here</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+
+            case 4:
+                if (!selectedType) return null;
+                return (
+                    <div className="space-y-8">
+                        <div className="text-center">
+                            <div className="flex items-center justify-center space-x-3 mb-4">
+                                <div className="p-3 bg-gradient-to-br from-cyan-400 to-purple-600 rounded-xl">
+                                    <Download className="w-8 h-8 text-white" />
+                                </div>
+                                <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
+                                    Download QR Code
+                                </h2>
+                            </div>
+                            <p className="text-gray-600 text-lg">Your QR code is ready to download</p>
+                        </div>
+
+                        <div className="grid lg:grid-cols-2 gap-8">
+                            <div className="space-y-6">
+                                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                                    <h3 className="font-semibold text-gray-900 mb-4">QR Code Details</h3>
+                                    <div className="space-y-3 text-sm">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Type:</span>
+                                            <span className="font-medium">{selectedType.title}</span>
+                                        </div>
+                                        {Object.entries(formData).map(([key, value]) => (
+                                            <div key={key} className="flex justify-between">
+                                                <span className="text-gray-600">{key}:</span>
+                                                <span className="font-medium truncate max-w-[200px]" title={value}>
+                                                    {value && value.length > 30 ? value.substring(0, 30) + '...' : value}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex space-x-4">
+                                    <button
+                                        onClick={resetToStep1}
+                                        className="px-8 py-3 border border-gray-300 bg-white text-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-300 shadow-lg"
+                                    >
+                                        Create New QR Code
+                                    </button>
+                                    <button
+                                        onClick={downloadQRCode}
+                                        className="flex-1 px-8 py-3 bg-gradient-to-r from-cyan-400 to-purple-600 text-white rounded-2xl hover:from-cyan-500 hover:to-purple-700 transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
+                                    >
+                                        <Download className="w-4 h-4" />
+                                        <span>Download QR Code</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-lg">
+                                <div className="flex items-center justify-center">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
                                         src={qrCodeDataUrl}
                                         alt="Generated QR Code"
-                                        className="max-w-full max-h-80 mx-auto shadow-lg rounded-lg"
+                                        className="max-w-full max-h-80 mx-auto shadow-2xl rounded-2xl"
                                     />
-                                    <p className="text-sm text-gray-600 mt-2">
-                                        Scan this QR code to visit the website
-                                    </p>
                                 </div>
-                            ) : (
-                                <div className="text-center text-gray-500">
-                                    <div className="text-6xl mb-4">📱</div>
-                                    <p className="text-lg font-medium">QR Code Preview</p>
-                                    <p className="text-sm">Generate a QR code to see it here</p>
-                                </div>
-                            )}
+                                <p className="text-center text-sm text-gray-600 mt-4">
+                                    Scan this QR code to access your content
+                                </p>
+                            </div>
                         </div>
                     </div>
+                );
+
+            default:
+                return null;
+        }
+    };
+
+    const steps = [
+        { number: 1, title: 'Choose Type', active: currentStep >= 1 },
+        { number: 2, title: 'Add Content', active: currentStep >= 2 },
+        { number: 3, title: 'Customize', active: currentStep >= 3 },
+        { number: 4, title: 'Download', active: currentStep >= 4 }
+    ];
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-purple-50 to-cyan-100">
+            {/* Navbar */}
+            <nav className="bg-white/80 backdrop-blur-lg border-b border-gray-200 sticky top-0 z-50 shadow-lg">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex items-center justify-between h-16">
+                        {/* Logo */}
+                        <div className="flex items-center space-x-3">
+                            <div className="relative w-28 h-28">
+                                <Image
+                                    src="/Asset 3.png"
+                                    alt="Logo"
+                                    fill
+                                    className="object-contain"
+                                />
+                            </div>
+                            <span className="text-lg font-bold bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
+                                QR Code Generator
+                            </span>
+                        </div>
+
+                        {/* Steps Navigation */}
+                        <div className="hidden md:flex items-center space-x-2">
+                            {steps.map((step, index) => (
+                                <React.Fragment key={step.number}>
+                                    <button
+                                        onClick={() => {
+                                            if (step.active) {
+                                                setCurrentStep(step.number);
+                                            }
+                                        }}
+                                        className={`flex items-center space-x-2 px-4 py-2 rounded-xl transition-all duration-300 ${currentStep === step.number
+                                            ? 'bg-gradient-to-r from-cyan-400 to-purple-600 text-white shadow-lg'
+                                            : step.active
+                                                ? 'bg-white/60 backdrop-blur-lg text-gray-700 hover:bg-white/80 border border-gray-200'
+                                                : 'text-gray-400 cursor-not-allowed bg-gray-100'
+                                            }`}
+                                        disabled={!step.active}
+                                    >
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${currentStep === step.number
+                                            ? 'bg-white/20'
+                                            : step.active
+                                                ? 'bg-cyan-400/20'
+                                                : 'bg-gray-200'
+                                            }`}>
+                                            {step.number}
+                                        </div>
+                                        <span className="font-medium">{step.title}</span>
+                                    </button>
+                                    {index < steps.length - 1 && (
+                                        <div className={`w-8 h-0.5 ${currentStep > step.number
+                                            ? 'bg-gradient-to-r from-cyan-400 to-purple-600'
+                                            : 'bg-gray-300'
+                                            }`} />
+                                    )}
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            {/* Main Content */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {/* Mobile Steps Indicator */}
+                <div className="md:hidden mb-8">
+                    <div className="flex items-center justify-center space-x-4">
+                        {steps.map((step, index) => (
+                            <React.Fragment key={step.number}>
+                                <div className="flex items-center">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${currentStep >= step.number
+                                        ? 'bg-gradient-to-r from-cyan-400 to-purple-600 text-white'
+                                        : 'bg-gray-200 text-gray-600'
+                                        }`}>
+                                        {step.number}
+                                    </div>
+                                    {index < steps.length - 1 && (
+                                        <div className={`w-8 h-1 mx-2 ${currentStep > step.number ? 'bg-gradient-to-r from-cyan-400 to-purple-600' : 'bg-gray-200'
+                                            }`} />
+                                    )}
+                                </div>
+                            </React.Fragment>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Step Content */}
+                <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl border border-gray-200 p-8">
+                    {getStepContent()}
                 </div>
 
                 {/* Footer */}
                 <div className="text-center mt-8 text-gray-600">
-                    <p>
+                    <p className="bg-white/80 backdrop-blur-lg rounded-2xl px-6 py-3 border border-gray-200 inline-block shadow-lg">
                         Created with ❤️ by NextLayer Studio
                     </p>
                 </div>
