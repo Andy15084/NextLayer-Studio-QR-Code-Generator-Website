@@ -1,11 +1,9 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import QRCode from 'qrcode';
 
-interface QRCodeGeneratorProps { }
-
-const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = () => {
+const QRCodeGenerator: React.FC = () => {
     const [url, setUrl] = useState('');
     const [filename, setFilename] = useState('');
     const [qrSize, setQrSize] = useState(10);
@@ -15,7 +13,6 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = () => {
     const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState('');
-    const canvasRef = useRef<HTMLCanvasElement>(null);
 
     const generateQRCode = async () => {
         if (!url.trim()) {
@@ -226,6 +223,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = () => {
                         <div className="flex items-center justify-center min-h-[400px] bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                             {qrCodeDataUrl ? (
                                 <div className="text-center">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
                                         src={qrCodeDataUrl}
                                         alt="Generated QR Code"
@@ -249,7 +247,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = () => {
                 {/* Footer */}
                 <div className="text-center mt-8 text-gray-600">
                     <p>
-                        Created with ❤️ using Next.js and Tailwind CSS
+                        Created with ❤️ by NextLayer Studio
                     </p>
                 </div>
             </div>
