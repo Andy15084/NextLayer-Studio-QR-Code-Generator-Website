@@ -297,6 +297,17 @@ const QRCodeGenerator: React.FC = () => {
     const [hasRoundedCorners, setHasRoundedCorners] = useState(false);
     const [qrComplexity, setQrComplexity] = useState('M'); // L, M, Q, H
 
+    // Advanced customization options
+    const [qrStyle, setQrStyle] = useState('squares'); // squares, dots, rounded, cross, diamond
+    const [eyeStyle, setEyeStyle] = useState('square'); // square, circle, rounded, leaf
+    const [eyeColor, setEyeColor] = useState('#000000');
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [logoSize, setLogoSize] = useState(20); // percentage
+    const [logoPosition, setLogoPosition] = useState('center'); // center, top-left, top-right, bottom-left, bottom-right
+    const [logoBackground, setLogoBackground] = useState('#FFFFFF');
+    const [logoCornerRadius, setLogoCornerRadius] = useState(0);
+    const [logoPadding, setLogoPadding] = useState(2);
+
     // Calculate size in cm (assuming 96 DPI)
     const sizeInCm = Math.round((qrSize * 400 * 2.54) / 96) / 10;
 
@@ -366,7 +377,7 @@ const QRCodeGenerator: React.FC = () => {
         if (currentStep === 3 && generateQRContent().trim()) {
             generatePreview();
         }
-    }, [currentStep, generateQRContent, generatePreview]);
+    }, [currentStep, generateQRContent, generatePreview, fillColor, backgroundColor, qrSize, borderSize, hasTransparentBackground, qrComplexity, qrStyle, eyeStyle, eyeColor, logoFile, logoSize, logoPosition, logoBackground, logoCornerRadius, logoPadding]);
 
     const generateQRCode = useCallback(async () => {
         if (!selectedType) return;
@@ -434,6 +445,15 @@ const QRCodeGenerator: React.FC = () => {
         setHasTransparentBackground(false);
         setHasRoundedCorners(false);
         setQrComplexity('M');
+        setQrStyle('squares');
+        setEyeStyle('square');
+        setEyeColor('#000000');
+        setLogoFile(null);
+        setLogoSize(20);
+        setLogoPosition('center');
+        setLogoBackground('#FFFFFF');
+        setLogoCornerRadius(0);
+        setLogoPadding(2);
     }, []);
 
     const handleInputChange = useCallback((fieldId: string, value: string) => {
@@ -631,6 +651,39 @@ const QRCodeGenerator: React.FC = () => {
                                             </select>
                                         </div>
 
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                QR Code Style
+                                            </label>
+                                            <select
+                                                value={qrStyle}
+                                                onChange={(e) => setQrStyle(e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 bg-white rounded-2xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent text-gray-900 shadow-lg"
+                                            >
+                                                <option value="squares">Squares</option>
+                                                <option value="dots">Dots</option>
+                                                <option value="rounded">Rounded</option>
+                                                <option value="cross">Cross</option>
+                                                <option value="diamond">Diamond</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Eye Style
+                                            </label>
+                                            <select
+                                                value={eyeStyle}
+                                                onChange={(e) => setEyeStyle(e.target.value)}
+                                                className="w-full px-4 py-2 border border-gray-300 bg-white rounded-2xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent text-gray-900 shadow-lg"
+                                            >
+                                                <option value="square">Square</option>
+                                                <option value="circle">Circle</option>
+                                                <option value="rounded">Rounded</option>
+                                                <option value="leaf">Leaf</option>
+                                            </select>
+                                        </div>
+
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -645,16 +698,117 @@ const QRCodeGenerator: React.FC = () => {
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Background Color
+                                                    Eye Color
                                                 </label>
                                                 <input
                                                     type="color"
-                                                    value={backgroundColor}
-                                                    onChange={(e) => setBackgroundColor(e.target.value)}
-                                                    disabled={hasTransparentBackground}
-                                                    className={`w-full h-12 border border-gray-300 rounded-2xl cursor-pointer bg-white shadow-lg ${hasTransparentBackground ? 'opacity-50' : ''}`}
+                                                    value={eyeColor}
+                                                    onChange={(e) => setEyeColor(e.target.value)}
+                                                    className="w-full h-12 border border-gray-300 rounded-2xl cursor-pointer bg-white shadow-lg"
                                                 />
                                             </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Background Color
+                                            </label>
+                                            <input
+                                                type="color"
+                                                value={backgroundColor}
+                                                onChange={(e) => setBackgroundColor(e.target.value)}
+                                                disabled={hasTransparentBackground}
+                                                className={`w-full h-12 border border-gray-300 rounded-2xl cursor-pointer bg-white shadow-lg ${hasTransparentBackground ? 'opacity-50' : ''}`}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Logo/Image Upload
+                                                </label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                                                    className="w-full px-4 py-2 border border-gray-300 bg-white rounded-2xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent text-gray-900 shadow-lg"
+                                                />
+                                            </div>
+
+                                            {logoFile && (
+                                                <div className="space-y-4 p-4 bg-gray-50 rounded-2xl">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            Logo Size: {logoSize}%
+                                                        </label>
+                                                        <input
+                                                            type="range"
+                                                            min="5"
+                                                            max="30"
+                                                            value={logoSize}
+                                                            onChange={(e) => setLogoSize(Number(e.target.value))}
+                                                            className="w-full h-2 bg-gradient-to-r from-cyan-400 to-purple-600 rounded-lg appearance-none cursor-pointer slider"
+                                                        />
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            Logo Position
+                                                        </label>
+                                                        <select
+                                                            value={logoPosition}
+                                                            onChange={(e) => setLogoPosition(e.target.value)}
+                                                            className="w-full px-4 py-2 border border-gray-300 bg-white rounded-2xl focus:ring-2 focus:ring-cyan-400 focus:border-transparent text-gray-900 shadow-lg"
+                                                        >
+                                                            <option value="center">Center</option>
+                                                            <option value="top-left">Top Left</option>
+                                                            <option value="top-right">Top Right</option>
+                                                            <option value="bottom-left">Bottom Left</option>
+                                                            <option value="bottom-right">Bottom Right</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            Logo Background
+                                                        </label>
+                                                        <input
+                                                            type="color"
+                                                            value={logoBackground}
+                                                            onChange={(e) => setLogoBackground(e.target.value)}
+                                                            className="w-full h-12 border border-gray-300 rounded-2xl cursor-pointer bg-white shadow-lg"
+                                                        />
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            Logo Corner Radius: {logoCornerRadius}px
+                                                        </label>
+                                                        <input
+                                                            type="range"
+                                                            min="0"
+                                                            max="20"
+                                                            value={logoCornerRadius}
+                                                            onChange={(e) => setLogoCornerRadius(Number(e.target.value))}
+                                                            className="w-full h-2 bg-gradient-to-r from-cyan-400 to-purple-600 rounded-lg appearance-none cursor-pointer slider"
+                                                        />
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            Logo Padding: {logoPadding}px
+                                                        </label>
+                                                        <input
+                                                            type="range"
+                                                            min="0"
+                                                            max="10"
+                                                            value={logoPadding}
+                                                            onChange={(e) => setLogoPadding(Number(e.target.value))}
+                                                            className="w-full h-2 bg-gradient-to-r from-cyan-400 to-purple-600 rounded-lg appearance-none cursor-pointer slider"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="space-y-3">
@@ -821,7 +975,7 @@ const QRCodeGenerator: React.FC = () => {
             default:
                 return null;
         }
-    }, [currentStep, selectedType, formData, qrSize, borderSize, hasTransparentBackground, backgroundColor, fillColor, qrComplexity, sizeInCm, hasRoundedCorners, previewDataUrl, qrCodeDataUrl, isGenerating, error, resetToStep1, downloadQRCode, generateQRCode, handleInputChange]);
+    }, [currentStep, selectedType, formData, qrSize, borderSize, hasTransparentBackground, backgroundColor, fillColor, qrComplexity, sizeInCm, hasRoundedCorners, previewDataUrl, qrCodeDataUrl, isGenerating, error, resetToStep1, downloadQRCode, generateQRCode, handleInputChange, qrStyle, eyeStyle, eyeColor, logoFile, logoSize, logoPosition, logoBackground, logoCornerRadius, logoPadding]);
 
     const steps = [
         { number: 1, title: 'Choose Type', active: currentStep >= 1 },
