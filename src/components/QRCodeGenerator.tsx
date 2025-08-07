@@ -348,8 +348,12 @@ const QRCodeGenerator: React.FC = () => {
                 ctx.drawImage(img, 0, 0);
 
                 // Apply custom styling if needed
-                if (options.qrStyle !== 'squares' || options.eyeStyle !== 'square' || options.eyeColor !== options.fillColor) {
-                    applyQRCodeStyling(ctx, canvas.width, canvas.height, options);
+                if (options.qrStyle !== 'squares' || options.eyeStyle !== 'square' || options.eyeColor !== '#000000' || options.logoFile) {
+                    applyQRCodeStyling(ctx, canvas.width, canvas.height, {
+                        ...options,
+                        backgroundColor: options.backgroundColor,
+                        hasTransparentBackground: options.hasTransparentBackground
+                    });
                 }
 
                 // Add logo if provided
@@ -375,6 +379,8 @@ const QRCodeGenerator: React.FC = () => {
         eyeStyle: string;
         eyeColor: string;
         fillColor: string;
+        backgroundColor: string;
+        hasTransparentBackground: boolean;
     }) => {
         // Get the image data
         const imageData = ctx.getImageData(0, 0, width, height);
@@ -383,8 +389,13 @@ const QRCodeGenerator: React.FC = () => {
         // Calculate module size based on QR code dimensions
         const moduleSize = Math.max(1, Math.floor(width / 25));
 
-        // Clear the canvas first
-        ctx.clearRect(0, 0, width, height);
+        // Clear the canvas first and draw background
+        if (!options.hasTransparentBackground) {
+            ctx.fillStyle = options.backgroundColor;
+            ctx.fillRect(0, 0, width, height);
+        } else {
+            ctx.clearRect(0, 0, width, height);
+        }
 
         // Redraw the QR code with custom styling
         for (let y = 0; y < height; y += moduleSize) {
@@ -422,7 +433,10 @@ const QRCodeGenerator: React.FC = () => {
         }
 
         // Apply eye styling
-        applyEyeStyling(ctx, width, height, moduleSize, options);
+        applyEyeStyling(ctx, width, height, moduleSize, {
+            eyeStyle: options.eyeStyle,
+            eyeColor: options.eyeColor
+        });
     };
 
     const drawDot = (ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color: string) => {
@@ -696,7 +710,7 @@ const QRCodeGenerator: React.FC = () => {
             let dataUrl = await QRCode.toDataURL(qrContent, baseOptions);
 
             // Apply custom styling if needed
-            if (qrStyle !== 'squares' || eyeStyle !== 'square' || eyeColor !== fillColor || logoFile) {
+            if (qrStyle !== 'squares' || eyeStyle !== 'square' || eyeColor !== '#000000' || logoFile) {
                 dataUrl = await applyCustomStyling(dataUrl, {
                     qrStyle,
                     eyeStyle,
@@ -754,7 +768,7 @@ const QRCodeGenerator: React.FC = () => {
             let qrCodeDataUrl = await QRCode.toDataURL(qrContent, baseOptions);
 
             // Apply custom styling if needed
-            if (qrStyle !== 'squares' || eyeStyle !== 'square' || eyeColor !== fillColor || logoFile) {
+            if (qrStyle !== 'squares' || eyeStyle !== 'square' || eyeColor !== '#000000' || logoFile) {
                 qrCodeDataUrl = await applyCustomStyling(qrCodeDataUrl, {
                     qrStyle,
                     eyeStyle,
